@@ -1,679 +1,603 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <title>ExploView — Your Life, Engineered</title>
-
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.json">
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    .glass{
+    * { box-sizing: border-box; }
+
+    /* ── Scroll fix: never lock height ── */
+    html { overflow-y: scroll; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #080b14;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* Light mode */
+    body.light { background: #f1f5f9; color: #0f172a; }
+    body.light .glass { background: rgba(255,255,255,0.85) !important; border-color: #e2e8f0 !important; }
+    body.light aside { background: #ffffff; border-color: #e2e8f0; }
+    body.light header { background: rgba(241,245,249,0.9); border-color: #e2e8f0; }
+    body.light #mobileNav { background: #ffffff; border-color: #e2e8f0; }
+    body.light .bg-slate-900\/60 { background: rgba(241,245,249,0.8) !important; }
+    body.light input, body.light textarea { background: #f8fafc !important; border-color: #cbd5e1 !important; color: #0f172a !important; }
+    body.light .text-slate-400 { color: #64748b !important; }
+
+    .glass {
       backdrop-filter: blur(16px);
-      background: rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
     }
 
-    body.light{
-      background:#f1f5f9;
-      color:#0f172a;
+    /* Sidebar */
+    aside {
+      width: 240px;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      flex-shrink: 0;
+      background: #0d1120;
+      border-right: 1px solid #1e2538;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      transition: transform 0.25s ease;
+      z-index: 50;
     }
 
-    body.light .glass{
-      background:rgba(255,255,255,0.7);
+    /* Mobile sidebar overlay */
+    #sideOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 49;
     }
+
+    @media (max-width: 767px) {
+      aside {
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        transform: translateX(-100%);
+      }
+      aside.open { transform: translateX(0); }
+      #sideOverlay.open { display: block; }
+    }
+
+    nav button {
+      width: 100%;
+      text-align: left;
+      padding: 9px 12px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.875rem;
+      color: #94a3b8;
+      transition: all 0.15s;
+      border: none;
+      background: none;
+      cursor: pointer;
+    }
+    nav button:hover { background: rgba(255,255,255,0.06); color: #e2e8f0; }
+    nav button.active { background: rgba(6,182,212,0.12); color: #22d3ee; font-weight: 600; }
+
+    /* Main layout */
+    #app { display: flex; }
+
+    main { flex: 1; min-width: 0; }
+
+    /* Sticky header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(8,11,20,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #1e2538;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Content area — bottom padding so mobile nav doesn't cover it */
+    #content {
+      padding: 20px 16px 100px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    @media (min-width: 768px) {
+      #content { padding: 24px 24px 40px; }
+    }
+
+    /* Cards */
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .card h3 {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    /* Stat cards */
+    .stat-val {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .stat-sub { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
+
+    /* Grid helpers */
+    .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+    @media (max-width: 640px) {
+      .grid-3 { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    @media (min-width: 641px) and (max-width: 900px) {
+      .grid-3 { grid-template-columns: repeat(2,1fr); }
+    }
+
+    .space-y > * + * { margin-top: 12px; }
+
+    /* Progress bar */
+    .prog-track { height: 6px; background: #1e2538; border-radius: 3px; overflow: hidden; }
+    .prog-fill  { height: 6px; border-radius: 3px; transition: width 0.4s ease; }
+
+    /* Input / button base */
+    input[type="text"], input[type="number"], input[type="time"], textarea, select {
+      background: #0d1120;
+      border: 1px solid #1e2538;
+      border-radius: 10px;
+      color: #e2e8f0;
+      padding: 9px 12px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+    input:focus, textarea:focus, select:focus { border-color: #06b6d4; }
+
+    .btn {
+      padding: 9px 18px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .btn-primary { background: #06b6d4; color: #080b14; }
+    .btn-primary:hover { background: #22d3ee; }
+    .btn-ghost { background: rgba(255,255,255,0.06); color: #94a3b8; border: 1px solid #1e2538; }
+    .btn-ghost:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+    .btn-danger { background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+    .btn-danger:hover { background: rgba(239,68,68,0.2); }
+    .btn-sm { padding: 5px 10px; font-size: 0.72rem; }
+
+    /* Tags */
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .tag-high { background: rgba(239,68,68,0.15); color: #f87171; }
+    .tag-med  { background: rgba(234,179,8,0.15); color: #fbbf24; }
+    .tag-low  { background: rgba(34,197,94,0.15); color: #4ade80; }
+
+    /* Task row */
+    .task-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #1e2538;
+      border-radius: 10px;
+      transition: border-color 0.15s;
+    }
+    .task-row:hover { border-color: #2e3a55; }
+    .task-row.done span.title { text-decoration: line-through; color: #475569; }
+
+    input[type="checkbox"] {
+      width: 16px; height: 16px;
+      accent-color: #06b6d4;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* Mobile bottom nav */
+    #mobileNav {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #0d1120;
+      border-top: 1px solid #1e2538;
+      z-index: 48;
+      padding: 6px 0 8px;
+    }
+    @media (max-width: 767px) {
+      #mobileNav { display: flex; justify-content: space-around; }
+    }
+    #mobileNav button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 4px 8px;
+      background: none;
+      border: none;
+      color: #475569;
+      font-size: 0.62rem;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    #mobileNav button.active { color: #22d3ee; }
+    #mobileNav button span.ico { font-size: 1.2rem; }
+
+    /* Habit streak */
+    .habit-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #1e2538;
+      border-radius: 10px;
+    }
+
+    /* AI output */
+    #studyOut {
+      margin-top: 14px;
+      padding: 14px;
+      background: rgba(6,182,212,0.05);
+      border: 1px solid rgba(6,182,212,0.15);
+      border-radius: 12px;
+      font-size: 0.875rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      min-height: 40px;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(6,182,212,0.3);
+      border-top-color: #06b6d4;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1e2538; border-radius: 3px; }
   </style>
 </head>
+<body>
 
-<body class="bg-slate-950 text-slate-100 min-h-screen">
+<!-- Sidebar overlay for mobile -->
+<div id="sideOverlay" onclick="closeSidebar()"></div>
 
-<div id="app" class="flex">
+<div id="app">
 
   <!-- Sidebar -->
-  <aside class="hidden md:flex w-64 h-screen sticky top-0 flex-col p-4 bg-slate-900/70 border-r border-slate-800">
-
-    <div class="flex items-center gap-2 mb-6">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-600 grid place-items-center font-bold">
-        EV
-      </div>
-
+  <aside id="sidebar">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:4px 0">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#06b6d4,#7c3aed);display:grid;place-items:center;font-weight:700;font-size:0.85rem;flex-shrink:0">EV</div>
       <div>
-        <h1 class="font-semibold">ExploView</h1>
-        <p class="text-xs text-slate-400">Your Life, Engineered</p>
+        <div style="font-weight:700;font-size:0.95rem">ExploView</div>
+        <div style="font-size:0.68rem;color:#475569">Your Life, Engineered</div>
       </div>
     </div>
 
-    <nav id="nav" class="space-y-1 text-sm"></nav>
+    <nav id="nav"></nav>
 
-    <div class="mt-auto text-[11px] text-slate-500">
-      Founded by Shayne Mwanza & Abdullah Mian<br>
-      Lusaka, Zambia © 2026
+    <div style="margin-top:auto;font-size:0.68rem;color:#334155;line-height:1.6;padding-top:16px">
+      Founded by Shayne Mwanza &amp; Abdullah Mian<br>Lusaka, Zambia © 2026
     </div>
-
   </aside>
 
   <!-- Main -->
-  <main class="flex-1 min-h-screen">
+  <main>
 
-    <header class="sticky top-0 z-40 backdrop-blur bg-slate-950/70 border-b border-slate-800 p-3 flex items-center gap-3">
+    <header>
+      <button id="menuBtn" onclick="openSidebar()" style="display:none;padding:8px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid #1e2538;color:#94a3b8;cursor:pointer;font-size:1rem">☰</button>
 
-      <button id="menuBtn" class="md:hidden p-2 rounded-lg bg-slate-800">
-        ☰
-      </button>
+      <div style="font-weight:600;font-size:0.95rem" id="pageTitle">Dashboard</div>
 
-      <div class="font-medium" id="pageTitle">
-        Dashboard
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <button onclick="toggleTheme()" class="btn btn-ghost btn-sm">☀ Theme</button>
+        <button id="installBtn" class="btn btn-primary btn-sm">Install</button>
       </div>
-
-      <div class="ml-auto flex items-center gap-2">
-
-        <button id="themeBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 text-sm">
-          Dark/Light
-        </button>
-
-        <button id="installBtn" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 text-sm font-medium">
-          Install App
-        </button>
-
-      </div>
-
     </header>
 
-    <div id="content" class="p-4 md:p-6 max-w-7xl mx-auto space-y-6"></div>
+    <div id="content"></div>
 
   </main>
-
 </div>
 
-<!-- Mobile Nav -->
-<div class="md:hidden fixed bottom-0 inset-x-0 bg-slate-900/90 border-t border-slate-800 flex justify-around p-2 text-xs" id="mobileNav"></div>
+<!-- Mobile bottom nav -->
+<div id="mobileNav"></div>
 
 <script>
-
-const $ = s => document.querySelector(s);
-
+/* ───────────────────────────────────────────
+   STORE
+─────────────────────────────────────────── */
 const store = {
-  get(k,d){
-    try{
-      return JSON.parse(localStorage.getItem(k)) ?? d;
-    }catch{
-      return d;
-    }
+  get(k, d) {
+    try { return JSON.parse(localStorage.getItem(k)) ?? d; }
+    catch { return d; }
   },
-
-  set(k,v){
-    localStorage.setItem(k, JSON.stringify(v));
-  }
+  set(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
 };
 
-if(!localStorage.getItem('ev_init')){
-
-  store.set('profile',{
-    name:'Abdullah',
-    focus:['Study','Money','Health']
+/* Seed data */
+if (!localStorage.getItem('ev2_init')) {
+  store.set('profile', { name: 'Abdullah', focus: ['Study','Money','Health'] });
+  store.set('goals', [
+    { id: 1, title: 'Finish Exam Prep', progress: 40, category: 'School' },
+    { id: 2, title: 'Save PKR 10,000', progress: 20, category: 'Money' }
+  ]);
+  store.set('tasks', [
+    { id: 1, title: 'Study Physics', done: false, priority: 'high', time: '09:00' },
+    { id: 2, title: 'Read Chapter 5', done: false, priority: 'med', time: '11:00' }
+  ]);
+  store.set('money', {
+    income:  [{ s: 'Freelancing', a: 5000 }],
+    expense: [{ s: 'Food', a: 1200 }, { s: 'Transport', a: 400 }],
+    savings: 5000
   });
-
-  store.set('goals',[
-    {
-      id:1,
-      title:'Finish Exam Prep',
-      progress:40,
-      category:'School'
-    }
+  store.set('habits', [
+    { id: 1, name: 'Deep Work', streak: 4 },
+    { id: 2, name: 'Reading',   streak: 7 }
   ]);
-
-  store.set('tasks',[
-    {
-      id:1,
-      title:'Study Physics',
-      done:false,
-      priority:'high',
-      time:'09:00'
-    }
-  ]);
-
-  store.set('money',{
-    income:[{s:'Freelancing',a:500}],
-    expense:[{s:'Food',a:120}],
-    budget:1500,
-    savings:500
-  });
-
-  store.set('habits',[
-    {name:'Deep Work',streak:4},
-    {name:'Reading',streak:7}
-  ]);
-
-  localStorage.setItem('ev_init','1');
+  localStorage.setItem('ev2_init', '1');
 }
 
+/* ───────────────────────────────────────────
+   NAV
+─────────────────────────────────────────── */
 const sections = [
-  {id:'dash',label:'Dashboard',icon:'🏠'},
-  {id:'planner',label:'Planner',icon:'🗓️'},
-  {id:'goals',label:'Goals',icon:'🎯'},
-  {id:'study',label:'Study',icon:'📚'},
-  {id:'money',label:'Money',icon:'💰'},
-  {id:'analytics',label:'Analytics',icon:'📊'},
-  {id:'settings',label:'Settings',icon:'⚙️'}
+  { id: 'dash',      label: 'Dashboard', icon: '🏠' },
+  { id: 'planner',   label: 'Planner',   icon: '🗓️' },
+  { id: 'goals',     label: 'Goals',     icon: '🎯' },
+  { id: 'study',     label: 'Study AI',  icon: '📚' },
+  { id: 'money',     label: 'Money',     icon: '💰' },
+  { id: 'habits',    label: 'Habits',    icon: '🔥' },
+  { id: 'analytics', label: 'Analytics', icon: '📊' },
+  { id: 'settings',  label: 'Settings',  icon: '⚙️' }
 ];
-
-function renderNav(){
-
-  $('#nav').innerHTML = sections.map(s=>`
-    <button
-      data-goto="${s.id}"
-      class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 flex items-center gap-2"
-    >
-      <span>${s.icon}</span>
-      ${s.label}
-    </button>
-  `).join('');
-
-  $('#mobileNav').innerHTML = sections.map(s=>`
-    <button
-      data-goto="${s.id}"
-      class="flex flex-col items-center p-2"
-    >
-      <span>${s.icon}</span>
-      <span>${s.label}</span>
-    </button>
-  `).join('');
-
-  document.querySelectorAll('[data-goto]').forEach(btn=>{
-    btn.onclick = ()=>goto(btn.dataset.goto);
-  });
-}
 
 let current = 'dash';
 
-function goto(id){
+function renderNav() {
+  document.getElementById('nav').innerHTML = sections.map(s => `
+    <button data-goto="${s.id}" class="${s.id === current ? 'active' : ''}">
+      <span>${s.icon}</span> ${s.label}
+    </button>
+  `).join('');
+
+  document.getElementById('mobileNav').innerHTML = sections.map(s => `
+    <button data-goto="${s.id}" class="${s.id === current ? 'active' : ''}">
+      <span class="ico">${s.icon}</span>
+      <span>${s.label.split(' ')[0]}</span>
+    </button>
+  `).join('');
+
+  document.querySelectorAll('[data-goto]').forEach(btn => {
+    btn.onclick = () => { goto(btn.dataset.goto); closeSidebar(); };
+  });
+}
+
+function goto(id) {
   current = id;
-
-  $('#pageTitle').textContent =
-    sections.find(s=>s.id===id).label;
-
+  document.getElementById('pageTitle').textContent = sections.find(s => s.id === id).label;
+  renderNav();
   render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function card(title,inner){
-  return `
-    <div class="glass rounded-2xl border border-slate-800 p-4">
-      <h3 class="font-semibold mb-2">${title}</h3>
-      ${inner}
-    </div>
-  `;
+/* ───────────────────────────────────────────
+   SIDEBAR (mobile)
+─────────────────────────────────────────── */
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sideOverlay').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sideOverlay').classList.remove('open');
 }
 
-function render(){
+/* Show menu button on mobile */
+function checkMobile() {
+  document.getElementById('menuBtn').style.display =
+    window.innerWidth < 768 ? 'block' : 'none';
+}
+window.addEventListener('resize', checkMobile);
+checkMobile();
 
-  const c = $('#content');
+/* ───────────────────────────────────────────
+   CHART manager — prevents duplicate chart crash
+─────────────────────────────────────────── */
+const charts = {};
+function makeChart(id, config) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, config);
+}
 
-  const profile = store.get('profile',{name:'User'});
+/* ───────────────────────────────────────────
+   RENDER
+─────────────────────────────────────────── */
+function render() {
+  const c   = document.getElementById('content');
+  const pro = store.get('profile', { name: 'User' });
 
-  if(current==='dash'){
-
-    const tasks = store.get('tasks',[]);
-    const goals = store.get('goals',[]);
-    const money = store.get('money',{});
-
-    const balance =
-      (money.income||[]).reduce((a,b)=>a+b.a,0)
-      -
-      (money.expense||[]).reduce((a,b)=>a+b.a,0);
+  /* ── DASHBOARD ── */
+  if (current === 'dash') {
+    const tasks  = store.get('tasks', []);
+    const goals  = store.get('goals', []);
+    const money  = store.get('money', {});
+    const habits = store.get('habits', []);
+    const bal    = (money.income||[]).reduce((a,b)=>a+b.a,0)
+                 - (money.expense||[]).reduce((a,b)=>a+b.a,0);
 
     c.innerHTML = `
-
-      <div class="grid md:grid-cols-3 gap-4">
-
-        ${card('Welcome',`
-          <p class="text-2xl font-bold">
-            Hi ${profile.name} 👋
-          </p>
-
-          <p class="text-slate-400 text-sm">
-            ${new Date().toDateString()}
-          </p>
-        `)}
-
-        ${card('Tasks',`
-          <p class="text-3xl font-bold">
-            ${tasks.filter(t=>!t.done).length}
-          </p>
-
-          <p class="text-slate-400 text-sm">
-            remaining
-          </p>
-        `)}
-
-        ${card('Money',`
-          <p class="text-3xl font-bold">
-            K${balance}
-          </p>
-
-          <p class="text-slate-400 text-sm">
-            balance
-          </p>
-        `)}
-
+      <div class="grid-3 space-y" style="margin-bottom:12px">
+        <div class="card">
+          <h3>Welcome</h3>
+          <div class="stat-val" style="font-size:1.5rem">Hi ${pro.name} 👋</div>
+          <div class="stat-sub">${new Date().toDateString()}</div>
+        </div>
+        <div class="card">
+          <h3>Tasks Left</h3>
+          <div class="stat-val" style="color:#22d3ee">${tasks.filter(t=>!t.done).length}</div>
+          <div class="stat-sub">of ${tasks.length} total</div>
+        </div>
+        <div class="card">
+          <h3>Balance</h3>
+          <div class="stat-val" style="color:#4ade80">PKR ${bal.toLocaleString()}</div>
+          <div class="stat-sub">net this month</div>
+        </div>
       </div>
 
-      <div class="grid md:grid-cols-2 gap-4">
-
-        ${card('Goals Progress',
-          goals.map(g=>`
-            <div class="mb-3">
-
-              <div class="flex justify-between text-sm">
+      <div class="grid-2" style="margin-bottom:12px">
+        <div class="card">
+          <h3>Goals</h3>
+          ${goals.map(g=>`
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:5px">
                 <span>${g.title}</span>
-                <span>${g.progress}%</span>
+                <span style="color:#22d3ee;font-weight:600">${g.progress}%</span>
               </div>
-
-              <div class="h-2 bg-slate-800 rounded">
-                <div
-                  class="h-2 bg-cyan-500 rounded"
-                  style="width:${g.progress}%"
-                ></div>
+              <div class="prog-track">
+                <div class="prog-fill" style="width:${g.progress}%;background:linear-gradient(90deg,#06b6d4,#7c3aed)"></div>
               </div>
-
             </div>
-          `).join('')
-        )}
-
-        ${card('Quick Add',`
-          <div class="flex gap-2">
-
-            <input
-              id="qa"
-              placeholder="Add task..."
-              class="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm"
-            >
-
-            <button
-              class="px-3 py-2 bg-slate-800 rounded-lg text-sm"
-              onclick="addTask()"
-            >
-              Add
-            </button>
-
+          `).join('')}
+        </div>
+        <div class="card">
+          <h3>Quick Add Task</h3>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <input type="text" id="qa" placeholder="Task title...">
+            <div style="display:flex;gap:8px">
+              <select id="qpri" style="flex:1">
+                <option value="high">High Priority</option>
+                <option value="med" selected>Medium</option>
+                <option value="low">Low</option>
+              </select>
+              <input type="time" id="qtime" value="09:00" style="flex:1">
+            </div>
+            <button class="btn btn-primary" onclick="addTask()">+ Add Task</button>
           </div>
-        `)}
+        </div>
+      </div>
 
+      <div class="card">
+        <h3>Habits</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px">
+          ${habits.map(h=>`
+            <div class="habit-card">
+              <span style="font-size:0.85rem;font-weight:500">${h.name}</span>
+              <span style="color:#f97316;font-weight:700;font-size:0.9rem">🔥 ${h.streak}</span>
+            </div>
+          `).join('')}
+        </div>
       </div>
     `;
   }
 
-  if(current==='planner'){
-
-    const tasks = store.get('tasks',[]);
-
-    c.innerHTML = card('Planner',
-
-      tasks.map(t=>`
-        <div class="flex items-center gap-3 p-2 bg-slate-900/60 rounded-lg border border-slate-800 mb-2">
-
-          <input
-            type="checkbox"
-            ${t.done?'checked':''}
-            onchange="toggleTask(${t.id})"
-          >
-
-          <span class="flex-1">
-            ${t.time} — ${t.title}
-          </span>
-
-          <span class="text-xs px-2 py-0.5 rounded bg-slate-800">
-            ${t.priority}
-          </span>
-
-        </div>
-      `).join('')
-    );
-  }
-
-  if(current==='goals'){
-
-    const goals = store.get('goals',[]);
-
-    c.innerHTML = card('Goals',`
-
-      <div class="flex gap-2 mb-4">
-
-        <input
-          id="gtitle"
-          placeholder="New goal"
-          class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 flex-1"
-        >
-
-        <button
-          onclick="addGoal()"
-          class="px-3 py-2 bg-cyan-500 text-black rounded-lg"
-        >
-          Add
-        </button>
-
-      </div>
-
-      ${goals.map(g=>`
-        <div class="mb-4">
-
-          <div class="flex justify-between">
-            <span>${g.title}</span>
-            <span>${g.progress}%</span>
-          </div>
-
-          <div class="h-2 bg-slate-800 rounded mt-2">
-            <div
-              class="h-2 bg-violet-500 rounded"
-              style="width:${g.progress}%"
-            ></div>
-          </div>
-
-        </div>
-      `).join('')}
-
-    `);
-  }
-
-  if(current==='study'){
-
-    c.innerHTML = card('Study Assistant',`
-
-      <textarea
-        id="note"
-        class="w-full h-32 bg-slate-900 border border-slate-800 rounded-lg p-3"
-        placeholder="Paste notes..."
-      ></textarea>
-
-      <div class="flex gap-2 mt-3">
-
-        <button
-          onclick="summarize()"
-          class="px-3 py-2 bg-cyan-500 text-black rounded-lg"
-        >
-          Summarize
-        </button>
-
-        <button
-          onclick="makeQuiz()"
-          class="px-3 py-2 bg-slate-800 rounded-lg"
-        >
-          Quiz
-        </button>
-
-      </div>
-
-      <div id="studyOut" class="mt-4 text-sm text-slate-300"></div>
-
-    `);
-  }
-
-  if(current==='money'){
-
-    const m = store.get('money',{
-      income:[],
-      expense:[]
-    });
-
-    const totalIn =
-      m.income.reduce((a,b)=>a+b.a,0);
-
-    const totalOut =
-      m.expense.reduce((a,b)=>a+b.a,0);
+  /* ── PLANNER ── */
+  if (current === 'planner') {
+    const tasks = store.get('tasks', []);
+    const sorted = [...tasks].sort((a,b)=>a.time.localeCompare(b.time));
 
     c.innerHTML = `
-
-      <div class="grid md:grid-cols-3 gap-4">
-
-        ${card('Income',`
-          <p class="text-2xl font-bold">
-            K${totalIn}
-          </p>
-        `)}
-
-        ${card('Expenses',`
-          <p class="text-2xl font-bold">
-            K${totalOut}
-          </p>
-        `)}
-
-        ${card('Savings Goal',`
-          <p class="text-2xl font-bold">
-            K${m.savings}
-          </p>
-        `)}
-
+      <div class="card">
+        <h3>Today's Planner</h3>
+        <div class="space-y">
+          ${sorted.length ? sorted.map(t=>`
+            <div class="task-row ${t.done?'done':''}">
+              <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${t.id})">
+              <span class="title" style="flex:1;font-size:0.875rem">${t.time} — ${t.title}</span>
+              <span class="tag tag-${t.priority}">${t.priority}</span>
+              <button class="btn btn-danger btn-sm" onclick="deleteTask(${t.id})">✕</button>
+            </div>
+          `).join('') : '<div style="color:#475569;text-align:center;padding:20px">No tasks yet. Add one from Dashboard!</div>'}
+        </div>
       </div>
 
-      <div class="mt-4">
-        ${card('Spending Chart',`
-          <canvas id="moneyChart"></canvas>
-        `)}
+      <div class="card" style="margin-top:12px">
+        <h3>Add New Task</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <input type="text" id="pt" placeholder="Task title...">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <input type="time" id="ptime" value="09:00">
+            <select id="ppri">
+              <option value="high">High</option>
+              <option value="med" selected>Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <button class="btn btn-primary" onclick="addTaskFull()">Add</button>
+          </div>
+        </div>
       </div>
     `;
-
-    setTimeout(()=>{
-
-      new Chart($('#moneyChart'),{
-        type:'doughnut',
-
-        data:{
-          labels:m.expense.map(e=>e.s),
-
-          datasets:[{
-            data:m.expense.map(e=>e.a)
-          }]
-        }
-      });
-
-    },0);
   }
 
-  if(current==='analytics'){
+  /* ── GOALS ── */
+  if (current === 'goals') {
+    const goals = store.get('goals', []);
 
-    c.innerHTML = card('Weekly Productivity',`
-      <canvas id="prodChart"></canvas>
-    `);
-
-    setTimeout(()=>{
-
-      new Chart($('#prodChart'),{
-
-        type:'line',
-
-        data:{
-          labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-
-          datasets:[{
-            label:'Productivity',
-            data:[60,70,68,80,77,72,90],
-            borderColor:'#06b6d4',
-            tension:0.3
-          }]
-        }
-      });
-
-    },0);
-  }
-
-  if(current==='settings'){
-
-    c.innerHTML = card('Settings',`
-
-      <div class="space-y-4">
-
-        <div>
-
-          <label>Name</label>
-
-          <input
-            id="setName"
-            value="${profile.name}"
-            class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2"
-          >
-
+    c.innerHTML = `
+      <div class="card" style="margin-bottom:12px">
+        <h3>Add Goal</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="text" id="gtitle" placeholder="Goal title..." style="flex:1;min-width:160px">
+          <select id="gcat" style="width:130px">
+            <option>School</option><option>Money</option><option>Health</option><option>General</option>
+          </select>
+          <button class="btn btn-primary" onclick="addGoal()">+ Add</button>
         </div>
-
-        <div class="flex gap-2">
-
-          <button
-            onclick="saveProfile()"
-            class="px-3 py-2 bg-cyan-500 text-black rounded-lg"
-          >
-            Save
-          </button>
-
-          <button
-            onclick="exportData()"
-            class="px-3 py-2 bg-slate-800 rounded-lg"
-          >
-            Export
-          </button>
-
-        </div>
-
       </div>
-    `);
-  }
-}
 
-function addTask(){
-
-  const v = $('#qa').value.trim();
-
-  if(!v) return;
-
-  const t = store.get('tasks',[]);
-
-  t.push({
-    id:Date.now(),
-    title:v,
-    done:false,
-    priority:'med',
-    time:'--:--'
-  });
-
-  store.set('tasks',t);
-
-  render();
-}
-
-function toggleTask(id){
-
-  const t = store.get('tasks',[])
-  .map(x=>x.id===id
-    ? {...x,done:!x.done}
-    : x
-  );
-
-  store.set('tasks',t);
-
-  render();
-}
-
-function addGoal(){
-
-  const v = $('#gtitle').value.trim();
-
-  if(!v) return;
-
-  const g = store.get('goals',[]);
-
-  g.push({
-    id:Date.now(),
-    title:v,
-    progress:5,
-    category:'General'
-  });
-
-  store.set('goals',g);
-
-  render();
-}
-
-function summarize(){
-
-  const n = $('#note').value;
-
-  $('#studyOut').innerHTML =
-    n
-    ? `<b>Summary:</b> ${n.slice(0,150)}...`
-    : 'Paste notes first.';
-}
-
-function makeQuiz(){
-
-  $('#studyOut').innerHTML = `
-    <b>Quiz:</b>
-
-    <ol class="list-decimal ml-5 mt-2">
-      <li>What is the main topic?</li>
-      <li>Define a key concept.</li>
-      <li>Explain the example.</li>
-    </ol>
-  `;
-}
-
-function saveProfile(){
-
-  const p = store.get('profile',{});
-
-  p.name = $('#setName').value;
-
-  store.set('profile',p);
-
-  alert('Profile saved.');
-
-  render();
-}
-
-function exportData(){
-
-  const data = JSON.stringify(localStorage,null,2);
-
-  const blob = new Blob([data],{
-    type:'application/json'
-  });
-
-  const a = document.createElement('a');
-
-  a.href = URL.createObjectURL(blob);
-
-  a.download = 'exploview-backup.json';
-
-  a.click();
-}
-
-$('#themeBtn').onclick = ()=>{
-
-  document.body.classList.toggle('light');
-};
-
-let deferredPrompt;
-
-window.addEventListener(
-  'beforeinstallprompt',
-  e=>{
-    e.preventDefault();
-    deferredPrompt = e;
-  }
-);
-
-$('#installBtn').onclick = async ()=>{
-
-  if(deferredPrompt){
-    deferredPrompt.prompt();
-  }else{
-    alert('Install unavailable.');
-  }
-};
-
-renderNav();
-render();
-
-</script>
-
-</body>
-  </html>
+      <div class="space-y">
+        ${goals.map(g=>`
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">
+              <div>
+                <div style="font-weight:600">${g.title}</div>
+                <div style="font-size:0.72rem;color:#475569;margin-top:2px">${g.category}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:#22d3ee;font-weight:700">${g.progress}%</span>
+                <button class="btn btn-danger btn-sm" onclick="deleteGoal(${g.id})">✕</button>
+              </div>
+            </div>
+            <div class="prog-track" style="margin-bottom:8px">
+              <div class="prog-fill" style="width:${g.progress}%;backg
