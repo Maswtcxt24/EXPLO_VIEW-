@@ -1,205 +1,679 @@
-function addExpense(){
-  const s = $('#exSrc').value;
-  const a = +$('#exAmt').value;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ExploView — Your Life, Engineered</title>
 
-  if(!s || !a) return;
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  const m = store.get('money');
-  m.expense.push({s,a});
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
 
-  store.set('money', m);
+  <style>
+    .glass{
+      backdrop-filter: blur(16px);
+      background: rgba(255,255,255,0.06);
+    }
+
+    body.light{
+      background:#f1f5f9;
+      color:#0f172a;
+    }
+
+    body.light .glass{
+      background:rgba(255,255,255,0.7);
+    }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+<div id="app" class="flex">
+
+  <!-- Sidebar -->
+  <aside class="hidden md:flex w-64 h-screen sticky top-0 flex-col p-4 bg-slate-900/70 border-r border-slate-800">
+
+    <div class="flex items-center gap-2 mb-6">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-600 grid place-items-center font-bold">
+        EV
+      </div>
+
+      <div>
+        <h1 class="font-semibold">ExploView</h1>
+        <p class="text-xs text-slate-400">Your Life, Engineered</p>
+      </div>
+    </div>
+
+    <nav id="nav" class="space-y-1 text-sm"></nav>
+
+    <div class="mt-auto text-[11px] text-slate-500">
+      Founded by Shayne Mwanza & Abdullah Mian<br>
+      Lusaka, Zambia © 2026
+    </div>
+
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 min-h-screen">
+
+    <header class="sticky top-0 z-40 backdrop-blur bg-slate-950/70 border-b border-slate-800 p-3 flex items-center gap-3">
+
+      <button id="menuBtn" class="md:hidden p-2 rounded-lg bg-slate-800">
+        ☰
+      </button>
+
+      <div class="font-medium" id="pageTitle">
+        Dashboard
+      </div>
+
+      <div class="ml-auto flex items-center gap-2">
+
+        <button id="themeBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 text-sm">
+          Dark/Light
+        </button>
+
+        <button id="installBtn" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 text-sm font-medium">
+          Install App
+        </button>
+
+      </div>
+
+    </header>
+
+    <div id="content" class="p-4 md:p-6 max-w-7xl mx-auto space-y-6"></div>
+
+  </main>
+
+</div>
+
+<!-- Mobile Nav -->
+<div class="md:hidden fixed bottom-0 inset-x-0 bg-slate-900/90 border-t border-slate-800 flex justify-around p-2 text-xs" id="mobileNav"></div>
+
+<script>
+
+const $ = s => document.querySelector(s);
+
+const store = {
+  get(k,d){
+    try{
+      return JSON.parse(localStorage.getItem(k)) ?? d;
+    }catch{
+      return d;
+    }
+  },
+
+  set(k,v){
+    localStorage.setItem(k, JSON.stringify(v));
+  }
+};
+
+if(!localStorage.getItem('ev_init')){
+
+  store.set('profile',{
+    name:'Abdullah',
+    focus:['Study','Money','Health']
+  });
+
+  store.set('goals',[
+    {
+      id:1,
+      title:'Finish Exam Prep',
+      progress:40,
+      category:'School'
+    }
+  ]);
+
+  store.set('tasks',[
+    {
+      id:1,
+      title:'Study Physics',
+      done:false,
+      priority:'high',
+      time:'09:00'
+    }
+  ]);
+
+  store.set('money',{
+    income:[{s:'Freelancing',a:500}],
+    expense:[{s:'Food',a:120}],
+    budget:1500,
+    savings:500
+  });
+
+  store.set('habits',[
+    {name:'Deep Work',streak:4},
+    {name:'Reading',streak:7}
+  ]);
+
+  localStorage.setItem('ev_init','1');
+}
+
+const sections = [
+  {id:'dash',label:'Dashboard',icon:'🏠'},
+  {id:'planner',label:'Planner',icon:'🗓️'},
+  {id:'goals',label:'Goals',icon:'🎯'},
+  {id:'study',label:'Study',icon:'📚'},
+  {id:'money',label:'Money',icon:'💰'},
+  {id:'analytics',label:'Analytics',icon:'📊'},
+  {id:'settings',label:'Settings',icon:'⚙️'}
+];
+
+function renderNav(){
+
+  $('#nav').innerHTML = sections.map(s=>`
+    <button
+      data-goto="${s.id}"
+      class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 flex items-center gap-2"
+    >
+      <span>${s.icon}</span>
+      ${s.label}
+    </button>
+  `).join('');
+
+  $('#mobileNav').innerHTML = sections.map(s=>`
+    <button
+      data-goto="${s.id}"
+      class="flex flex-col items-center p-2"
+    >
+      <span>${s.icon}</span>
+      <span>${s.label}</span>
+    </button>
+  `).join('');
+
+  document.querySelectorAll('[data-goto]').forEach(btn=>{
+    btn.onclick = ()=>goto(btn.dataset.goto);
+  });
+}
+
+let current = 'dash';
+
+function goto(id){
+  current = id;
+
+  $('#pageTitle').textContent =
+    sections.find(s=>s.id===id).label;
+
   render();
 }
 
-function logMood(m){
-  const moods = store.get('mood', []);
-  moods.push({
-    mood: m,
-    date: new Date().toLocaleDateString()
-  });
-
-  store.set('mood', moods);
-  renderMood();
+function card(title,inner){
+  return `
+    <div class="glass rounded-2xl border border-slate-800 p-4">
+      <h3 class="font-semibold mb-2">${title}</h3>
+      ${inner}
+    </div>
+  `;
 }
 
-function renderMood(){
-  const moods = store.get('mood', []);
-  const el = $('#moodLog');
+function render(){
 
-  if(!el) return;
+  const c = $('#content');
 
-  el.innerHTML = moods.slice(-5).reverse().map(x =>
-    `<div>${x.date} — ${x.mood}</div>`
-  ).join('');
-}
+  const profile = store.get('profile',{name:'User'});
 
-function saveSleep(){
-  const hrs = $('#sleep').value;
-  localStorage.setItem('sleepHours', hrs);
+  if(current==='dash'){
 
-  alert(`Saved ${hrs} hours of sleep.`);
-}
+    const tasks = store.get('tasks',[]);
+    const goals = store.get('goals',[]);
+    const money = store.get('money',{});
 
-let pomInt;
-let pomTime = 25 * 60;
+    const balance =
+      (money.income||[]).reduce((a,b)=>a+b.a,0)
+      -
+      (money.expense||[]).reduce((a,b)=>a+b.a,0);
 
-function updatePom(){
-  const m = Math.floor(pomTime / 60).toString().padStart(2,'0');
-  const s = (pomTime % 60).toString().padStart(2,'0');
+    c.innerHTML = `
 
-  $('#timer').textContent = `${m}:${s}`;
+      <div class="grid md:grid-cols-3 gap-4">
 
-  if(pomTime <= 0){
-    clearInterval(pomInt);
-    alert('Pomodoro complete!');
+        ${card('Welcome',`
+          <p class="text-2xl font-bold">
+            Hi ${profile.name} 👋
+          </p>
+
+          <p class="text-slate-400 text-sm">
+            ${new Date().toDateString()}
+          </p>
+        `)}
+
+        ${card('Tasks',`
+          <p class="text-3xl font-bold">
+            ${tasks.filter(t=>!t.done).length}
+          </p>
+
+          <p class="text-slate-400 text-sm">
+            remaining
+          </p>
+        `)}
+
+        ${card('Money',`
+          <p class="text-3xl font-bold">
+            K${balance}
+          </p>
+
+          <p class="text-slate-400 text-sm">
+            balance
+          </p>
+        `)}
+
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+
+        ${card('Goals Progress',
+          goals.map(g=>`
+            <div class="mb-3">
+
+              <div class="flex justify-between text-sm">
+                <span>${g.title}</span>
+                <span>${g.progress}%</span>
+              </div>
+
+              <div class="h-2 bg-slate-800 rounded">
+                <div
+                  class="h-2 bg-cyan-500 rounded"
+                  style="width:${g.progress}%"
+                ></div>
+              </div>
+
+            </div>
+          `).join('')
+        )}
+
+        ${card('Quick Add',`
+          <div class="flex gap-2">
+
+            <input
+              id="qa"
+              placeholder="Add task..."
+              class="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm"
+            >
+
+            <button
+              class="px-3 py-2 bg-slate-800 rounded-lg text-sm"
+              onclick="addTask()"
+            >
+              Add
+            </button>
+
+          </div>
+        `)}
+
+      </div>
+    `;
   }
 
-  pomTime--;
+  if(current==='planner'){
+
+    const tasks = store.get('tasks',[]);
+
+    c.innerHTML = card('Planner',
+
+      tasks.map(t=>`
+        <div class="flex items-center gap-3 p-2 bg-slate-900/60 rounded-lg border border-slate-800 mb-2">
+
+          <input
+            type="checkbox"
+            ${t.done?'checked':''}
+            onchange="toggleTask(${t.id})"
+          >
+
+          <span class="flex-1">
+            ${t.time} — ${t.title}
+          </span>
+
+          <span class="text-xs px-2 py-0.5 rounded bg-slate-800">
+            ${t.priority}
+          </span>
+
+        </div>
+      `).join('')
+    );
+  }
+
+  if(current==='goals'){
+
+    const goals = store.get('goals',[]);
+
+    c.innerHTML = card('Goals',`
+
+      <div class="flex gap-2 mb-4">
+
+        <input
+          id="gtitle"
+          placeholder="New goal"
+          class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 flex-1"
+        >
+
+        <button
+          onclick="addGoal()"
+          class="px-3 py-2 bg-cyan-500 text-black rounded-lg"
+        >
+          Add
+        </button>
+
+      </div>
+
+      ${goals.map(g=>`
+        <div class="mb-4">
+
+          <div class="flex justify-between">
+            <span>${g.title}</span>
+            <span>${g.progress}%</span>
+          </div>
+
+          <div class="h-2 bg-slate-800 rounded mt-2">
+            <div
+              class="h-2 bg-violet-500 rounded"
+              style="width:${g.progress}%"
+            ></div>
+          </div>
+
+        </div>
+      `).join('')}
+
+    `);
+  }
+
+  if(current==='study'){
+
+    c.innerHTML = card('Study Assistant',`
+
+      <textarea
+        id="note"
+        class="w-full h-32 bg-slate-900 border border-slate-800 rounded-lg p-3"
+        placeholder="Paste notes..."
+      ></textarea>
+
+      <div class="flex gap-2 mt-3">
+
+        <button
+          onclick="summarize()"
+          class="px-3 py-2 bg-cyan-500 text-black rounded-lg"
+        >
+          Summarize
+        </button>
+
+        <button
+          onclick="makeQuiz()"
+          class="px-3 py-2 bg-slate-800 rounded-lg"
+        >
+          Quiz
+        </button>
+
+      </div>
+
+      <div id="studyOut" class="mt-4 text-sm text-slate-300"></div>
+
+    `);
+  }
+
+  if(current==='money'){
+
+    const m = store.get('money',{
+      income:[],
+      expense:[]
+    });
+
+    const totalIn =
+      m.income.reduce((a,b)=>a+b.a,0);
+
+    const totalOut =
+      m.expense.reduce((a,b)=>a+b.a,0);
+
+    c.innerHTML = `
+
+      <div class="grid md:grid-cols-3 gap-4">
+
+        ${card('Income',`
+          <p class="text-2xl font-bold">
+            K${totalIn}
+          </p>
+        `)}
+
+        ${card('Expenses',`
+          <p class="text-2xl font-bold">
+            K${totalOut}
+          </p>
+        `)}
+
+        ${card('Savings Goal',`
+          <p class="text-2xl font-bold">
+            K${m.savings}
+          </p>
+        `)}
+
+      </div>
+
+      <div class="mt-4">
+        ${card('Spending Chart',`
+          <canvas id="moneyChart"></canvas>
+        `)}
+      </div>
+    `;
+
+    setTimeout(()=>{
+
+      new Chart($('#moneyChart'),{
+        type:'doughnut',
+
+        data:{
+          labels:m.expense.map(e=>e.s),
+
+          datasets:[{
+            data:m.expense.map(e=>e.a)
+          }]
+        }
+      });
+
+    },0);
+  }
+
+  if(current==='analytics'){
+
+    c.innerHTML = card('Weekly Productivity',`
+      <canvas id="prodChart"></canvas>
+    `);
+
+    setTimeout(()=>{
+
+      new Chart($('#prodChart'),{
+
+        type:'line',
+
+        data:{
+          labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+
+          datasets:[{
+            label:'Productivity',
+            data:[60,70,68,80,77,72,90],
+            borderColor:'#06b6d4',
+            tension:0.3
+          }]
+        }
+      });
+
+    },0);
+  }
+
+  if(current==='settings'){
+
+    c.innerHTML = card('Settings',`
+
+      <div class="space-y-4">
+
+        <div>
+
+          <label>Name</label>
+
+          <input
+            id="setName"
+            value="${profile.name}"
+            class="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2"
+          >
+
+        </div>
+
+        <div class="flex gap-2">
+
+          <button
+            onclick="saveProfile()"
+            class="px-3 py-2 bg-cyan-500 text-black rounded-lg"
+          >
+            Save
+          </button>
+
+          <button
+            onclick="exportData()"
+            class="px-3 py-2 bg-slate-800 rounded-lg"
+          >
+            Export
+          </button>
+
+        </div>
+
+      </div>
+    `);
+  }
 }
 
-function startPom(){
-  clearInterval(pomInt);
-  pomInt = setInterval(updatePom, 1000);
+function addTask(){
+
+  const v = $('#qa').value.trim();
+
+  if(!v) return;
+
+  const t = store.get('tasks',[]);
+
+  t.push({
+    id:Date.now(),
+    title:v,
+    done:false,
+    priority:'med',
+    time:'--:--'
+  });
+
+  store.set('tasks',t);
+
+  render();
 }
 
-function stopPom(){
-  clearInterval(pomInt);
+function toggleTask(id){
+
+  const t = store.get('tasks',[])
+  .map(x=>x.id===id
+    ? {...x,done:!x.done}
+    : x
+  );
+
+  store.set('tasks',t);
+
+  render();
 }
 
-function deepWork(){
-  pomTime = 50 * 60;
-  updatePom();
+function addGoal(){
+
+  const v = $('#gtitle').value.trim();
+
+  if(!v) return;
+
+  const g = store.get('goals',[]);
+
+  g.push({
+    id:Date.now(),
+    title:v,
+    progress:5,
+    category:'General'
+  });
+
+  store.set('goals',g);
+
+  render();
+}
+
+function summarize(){
+
+  const n = $('#note').value;
+
+  $('#studyOut').innerHTML =
+    n
+    ? `<b>Summary:</b> ${n.slice(0,150)}...`
+    : 'Paste notes first.';
+}
+
+function makeQuiz(){
+
+  $('#studyOut').innerHTML = `
+    <b>Quiz:</b>
+
+    <ol class="list-decimal ml-5 mt-2">
+      <li>What is the main topic?</li>
+      <li>Define a key concept.</li>
+      <li>Explain the example.</li>
+    </ol>
+  `;
 }
 
 function saveProfile(){
-  const p = store.get('profile', {});
+
+  const p = store.get('profile',{});
+
   p.name = $('#setName').value;
 
-  store.set('profile', p);
+  store.set('profile',p);
 
   alert('Profile saved.');
+
   render();
 }
 
 function exportData(){
-  const data = JSON.stringify(localStorage, null, 2);
 
-  const blob = new Blob([data], {type:'application/json'});
+  const data = JSON.stringify(localStorage,null,2);
+
+  const blob = new Blob([data],{
+    type:'application/json'
+  });
+
   const a = document.createElement('a');
 
   a.href = URL.createObjectURL(blob);
+
   a.download = 'exploview-backup.json';
 
   a.click();
 }
 
-function resetApp(){
-  if(confirm('Reset ExploView?')){
-    localStorage.clear();
-    location.reload();
-  }
-}
+$('#themeBtn').onclick = ()=>{
 
-function startGuide(){
-  alert('Guide: Start with Dashboard → Add Tasks → Set Goals → Use AI.');
-}
-
-function searchHelp(){
-  const q = $('#helpQ').value.toLowerCase();
-  const res = $('#helpRes');
-
-  const items = [
-    'Planning: Use AI "Plan my day"',
-    'Studying: Upload notes → Summarize → Quiz',
-    'Money: Track income/expense daily',
-    'Productivity: Use Pomodoro for focus'
-  ];
-
-  res.innerHTML = items
-    .filter(x => x.toLowerCase().includes(q))
-    .map(x => `<div>${x}</div>`)
-    .join('');
-}
-
-
-
-// Theme toggle
-$('#themeBtn').onclick = () => {
   document.body.classList.toggle('light');
-
-  if(document.body.classList.contains('light')){
-    document.body.classList.remove('bg-slate-950','text-slate-100');
-    document.body.classList.add('bg-slate-100','text-slate-900');
-  } else {
-    document.body.classList.remove('bg-slate-100','text-slate-900');
-    document.body.classList.add('bg-slate-950','text-slate-100');
-  }
 };
 
-
-
-// Install PWA
 let deferredPrompt;
 
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPrompt = e;
-});
+window.addEventListener(
+  'beforeinstallprompt',
+  e=>{
+    e.preventDefault();
+    deferredPrompt = e;
+  }
+);
 
-$('#installBtn').onclick = async () => {
+$('#installBtn').onclick = async ()=>{
+
   if(deferredPrompt){
     deferredPrompt.prompt();
-  } else {
-    alert('Install option not available yet.');
+  }else{
+    alert('Install unavailable.');
   }
 };
 
-
-
-// Onboarding
-const onboardSteps = [
-  'Track goals and tasks intelligently.',
-  'Use AI assistant to organize life.',
-  'Monitor study, money, and productivity.',
-  'Everything stays local and private.'
-];
-
-let onboardIndex = 0;
-
-function showOnboard(){
-  $('#onboard').classList.remove('hidden');
-  $('#onboard').classList.add('grid');
-
-  $('#onboardStep').innerHTML = onboardSteps[onboardIndex];
-}
-
-$('#nextOnboard').onclick = () => {
-  onboardIndex++;
-
-  if(onboardIndex >= onboardSteps.length){
-    $('#onboard').classList.add('hidden');
-    localStorage.setItem('onboarded', '1');
-  } else {
-    $('#onboardStep').innerHTML = onboardSteps[onboardIndex];
-  }
-};
-
-$('#skipOnboard').onclick = () => {
-  $('#onboard').classList.add('hidden');
-  localStorage.setItem('onboarded', '1');
-};
-
-
-
-// Init
 renderNav();
 render();
-
-if(!localStorage.getItem('onboarded')){
-  showOnboard();
-}
 
 </script>
 
 </body>
-</html>
+  </html>
