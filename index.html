@@ -1,0 +1,205 @@
+function addExpense(){
+  const s = $('#exSrc').value;
+  const a = +$('#exAmt').value;
+
+  if(!s || !a) return;
+
+  const m = store.get('money');
+  m.expense.push({s,a});
+
+  store.set('money', m);
+  render();
+}
+
+function logMood(m){
+  const moods = store.get('mood', []);
+  moods.push({
+    mood: m,
+    date: new Date().toLocaleDateString()
+  });
+
+  store.set('mood', moods);
+  renderMood();
+}
+
+function renderMood(){
+  const moods = store.get('mood', []);
+  const el = $('#moodLog');
+
+  if(!el) return;
+
+  el.innerHTML = moods.slice(-5).reverse().map(x =>
+    `<div>${x.date} — ${x.mood}</div>`
+  ).join('');
+}
+
+function saveSleep(){
+  const hrs = $('#sleep').value;
+  localStorage.setItem('sleepHours', hrs);
+
+  alert(`Saved ${hrs} hours of sleep.`);
+}
+
+let pomInt;
+let pomTime = 25 * 60;
+
+function updatePom(){
+  const m = Math.floor(pomTime / 60).toString().padStart(2,'0');
+  const s = (pomTime % 60).toString().padStart(2,'0');
+
+  $('#timer').textContent = `${m}:${s}`;
+
+  if(pomTime <= 0){
+    clearInterval(pomInt);
+    alert('Pomodoro complete!');
+  }
+
+  pomTime--;
+}
+
+function startPom(){
+  clearInterval(pomInt);
+  pomInt = setInterval(updatePom, 1000);
+}
+
+function stopPom(){
+  clearInterval(pomInt);
+}
+
+function deepWork(){
+  pomTime = 50 * 60;
+  updatePom();
+}
+
+function saveProfile(){
+  const p = store.get('profile', {});
+  p.name = $('#setName').value;
+
+  store.set('profile', p);
+
+  alert('Profile saved.');
+  render();
+}
+
+function exportData(){
+  const data = JSON.stringify(localStorage, null, 2);
+
+  const blob = new Blob([data], {type:'application/json'});
+  const a = document.createElement('a');
+
+  a.href = URL.createObjectURL(blob);
+  a.download = 'exploview-backup.json';
+
+  a.click();
+}
+
+function resetApp(){
+  if(confirm('Reset ExploView?')){
+    localStorage.clear();
+    location.reload();
+  }
+}
+
+function startGuide(){
+  alert('Guide: Start with Dashboard → Add Tasks → Set Goals → Use AI.');
+}
+
+function searchHelp(){
+  const q = $('#helpQ').value.toLowerCase();
+  const res = $('#helpRes');
+
+  const items = [
+    'Planning: Use AI "Plan my day"',
+    'Studying: Upload notes → Summarize → Quiz',
+    'Money: Track income/expense daily',
+    'Productivity: Use Pomodoro for focus'
+  ];
+
+  res.innerHTML = items
+    .filter(x => x.toLowerCase().includes(q))
+    .map(x => `<div>${x}</div>`)
+    .join('');
+}
+
+
+
+// Theme toggle
+$('#themeBtn').onclick = () => {
+  document.body.classList.toggle('light');
+
+  if(document.body.classList.contains('light')){
+    document.body.classList.remove('bg-slate-950','text-slate-100');
+    document.body.classList.add('bg-slate-100','text-slate-900');
+  } else {
+    document.body.classList.remove('bg-slate-100','text-slate-900');
+    document.body.classList.add('bg-slate-950','text-slate-100');
+  }
+};
+
+
+
+// Install PWA
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+});
+
+$('#installBtn').onclick = async () => {
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+  } else {
+    alert('Install option not available yet.');
+  }
+};
+
+
+
+// Onboarding
+const onboardSteps = [
+  'Track goals and tasks intelligently.',
+  'Use AI assistant to organize life.',
+  'Monitor study, money, and productivity.',
+  'Everything stays local and private.'
+];
+
+let onboardIndex = 0;
+
+function showOnboard(){
+  $('#onboard').classList.remove('hidden');
+  $('#onboard').classList.add('grid');
+
+  $('#onboardStep').innerHTML = onboardSteps[onboardIndex];
+}
+
+$('#nextOnboard').onclick = () => {
+  onboardIndex++;
+
+  if(onboardIndex >= onboardSteps.length){
+    $('#onboard').classList.add('hidden');
+    localStorage.setItem('onboarded', '1');
+  } else {
+    $('#onboardStep').innerHTML = onboardSteps[onboardIndex];
+  }
+};
+
+$('#skipOnboard').onclick = () => {
+  $('#onboard').classList.add('hidden');
+  localStorage.setItem('onboarded', '1');
+};
+
+
+
+// Init
+renderNav();
+render();
+
+if(!localStorage.getItem('onboarded')){
+  showOnboard();
+}
+
+</script>
+
+</body>
+</html>
